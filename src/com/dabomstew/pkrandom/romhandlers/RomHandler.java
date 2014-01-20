@@ -312,4 +312,8 @@ public interface RomHandler {
 
 	public void applySignature();
 
+	public void setEvilMode();
+
+	public void fixTrainerAI();
+
 }

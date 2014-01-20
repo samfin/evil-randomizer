@@ -118,6 +118,7 @@ public abstract class AbstractRomHandler implements RomHandler {
 
 	@Override
 	public void minimumCatchRate(int rate) {
+		System.out.println(rate);
 		List<Pokemon> pokes = getPokemon();
 		for (Pokemon pkmn : pokes) {
 			if (pkmn == null || pkmn.catchRate >= rate) {
@@ -1768,6 +1769,20 @@ public abstract class AbstractRomHandler implements RomHandler {
 	public List<Integer> getGameBreakingMoves() {
 		// Sonicboom & drage
 		return Arrays.asList(49, 82);
+	}
+
+	private boolean isEvil = false;
+
+	@Override
+	public void setEvilMode() {
+		this.isEvil = true;
+		this.fixTrainerAI();
+	}
+
+	@Override
+	public void fixTrainerAI() {
+		//default: do nothing
+
 	}
 
 }

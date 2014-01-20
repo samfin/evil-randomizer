@@ -2398,7 +2398,7 @@ public class RandomizerGUI extends javax.swing.JFrame {
 		this.raceModeCB.setEnabled(true);
 
 		this.bwEXPPatchCB.setSelected(false);
-		this.bwEXPPatchCB.setEnabled(romHandler.hasBWEXPPatch());
+		this.bwEXPPatchCB.setEnabled(true);
 
 		this.randomizeHollowsCB.setSelected(false);
 		this.randomizeHollowsCB.setEnabled(romHandler.hasHiddenHollowPokemon());
@@ -2918,6 +2918,10 @@ public class RandomizerGUI extends javax.swing.JFrame {
 			verboseLog = new PrintStream(baos);
 		}
 
+		if(this.bwEXPPatchCB.isSelected()) {
+			romHandler.setEvilMode();
+		}
+
 		// Update type effectiveness in RBY?
 		if (romHandler instanceof Gen1RomHandler
 				&& this.goUpdateTypesCheckBox.isSelected()) {
@@ -2948,10 +2952,7 @@ public class RandomizerGUI extends javax.swing.JFrame {
 			romHandler.patchForNationalDex();
 		}
 
-		// BW Exp Patch?
-		if (romHandler.hasBWEXPPatch() && this.bwEXPPatchCB.isSelected()) {
-			romHandler.applyBWEXPPatch();
-		}
+		// BW Exp Patch? no thanks
 
 		// Hollows?
 		if (romHandler.hasHiddenHollowPokemon()
