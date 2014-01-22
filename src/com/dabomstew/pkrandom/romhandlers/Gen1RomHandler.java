@@ -1978,4 +1978,23 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 			writeHexString(mod2recover, 0x3bf00);
 		}
 	}
+
+	@Override
+	public int getNewLevel(int level, Trainer tr) {
+		if(tr != null) {
+			if(tr.trainerclass == 34) {
+				// Brock
+				return level - 2;
+			} else if(tr.trainerclass == 3 && tr.trainerindex == 0) {
+				// Brock's trainer
+				return level - 2;
+			}
+		}
+		int[] x = {1, 7, 13, 14, 18, 24, 29, 33, 40, 43, 45, 50, 55, 60, 65, 100, 255};
+		int[] y = {1, 7, 15, 18, 25, 30, 35, 40, 47, 51, 54, 60, 65, 70, 75, 100, 255};
+		int i = 0;
+		while(level >= x[i+1]) i++;
+		double t = (level - x[i]) / (double) (x[i+1] - x[i]);
+		return (int) Math.round(t * y[i+1] + (1-t) * y[i]);
+	}
 }

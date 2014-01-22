@@ -316,4 +316,8 @@ public interface RomHandler {
 
 	public void fixTrainerAI();
 
+	// no default arguments is dumb
+	public int getNewLevel(int level);
+	public int getNewLevel(int level, Trainer tr);
+
 }

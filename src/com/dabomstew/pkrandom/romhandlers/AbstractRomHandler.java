@@ -386,6 +386,9 @@ public abstract class AbstractRomHandler implements RomHandler {
 							allPokes.removeAll(banned);
 						}
 					}
+					if(isEvil) {
+						enc.level = getNewLevel(enc.level);
+					}
 				}
 			}
 		} else if (typeThemed) {
@@ -406,6 +409,9 @@ public abstract class AbstractRomHandler implements RomHandler {
 						enc.pokemon = possiblePokemon.get(RandomSource
 								.nextInt(possiblePokemon.size()));
 					}
+					if(isEvil) {
+						enc.level = getNewLevel(enc.level);
+					}
 				}
 			}
 		} else {
@@ -418,6 +424,9 @@ public abstract class AbstractRomHandler implements RomHandler {
 							|| (area.battleTrappersBanned && hasBattleTrappingAbility(enc.pokemon))) {
 						enc.pokemon = noLegendaries ? randomNonLegendaryPokemon()
 								: randomPokemon();
+					}
+					if(isEvil) {
+						enc.level = getNewLevel(enc.level);
 					}
 				}
 			}
@@ -649,6 +658,9 @@ public abstract class AbstractRomHandler implements RomHandler {
 				boolean shedAllowed = (!noEarlyShedinja) || tp.level >= 20;
 				tp.pokemon = pickReplacement(tp.pokemon, usePowerLevels, null,
 						noLegendaries, shedAllowed);
+				if(isEvil) {
+					tp.level = getNewLevel(tp.level, t);
+				}
 			}
 		}
 
@@ -1785,4 +1797,15 @@ public abstract class AbstractRomHandler implements RomHandler {
 
 	}
 
+
+	@Override
+	public int getNewLevel(int level, Trainer tr) {
+		//default: do nothing
+		return level;
+	}
+
+	@Override
+	public int getNewLevel(int level) {
+		return getNewLevel(level, null);
+	}
 }
