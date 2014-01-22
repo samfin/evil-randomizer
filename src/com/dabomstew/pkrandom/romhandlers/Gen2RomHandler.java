@@ -1133,6 +1133,7 @@ public class Gen2RomHandler extends AbstractGBRomHandler {
 				Trainer tr = new Trainer();
 				tr.offset = offs;
 				tr.trainerclass = i;
+				tr.trainerindex = trnum;
 				String name = readVariableLengthString(offs);
 				tr.name = name;
 				offs += name.length() + 1;

@@ -34,6 +34,7 @@ public class Trainer implements Comparable<Trainer> {
 	public int poketype;
 	public String name;
 	public int trainerclass;
+	public int trainerindex;
 
 	public String toString() {
 		StringBuilder sb = new StringBuilder("[");

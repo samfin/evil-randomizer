@@ -1062,6 +1062,7 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 				Trainer tr = new Trainer();
 				tr.offset = offs;
 				tr.trainerclass = i;
+				tr.trainerindex = trnum;
 				int dataType = rom[offs] & 0xFF;
 				if (dataType == 0xFF) {
 					// "Special" trainer
