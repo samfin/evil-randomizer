@@ -1892,9 +1892,9 @@ public abstract class AbstractRomHandler implements RomHandler {
 		boolean isDesperate = (level >= 30 || movesLeft < 2);
 		boolean isDamaging = RandomSource.nextDouble() < 0.75;
 		// t1 = probability of evil damaging move, t2 = probability of evil status move
-		double t1 = 0.70, t2 = 0.2;
+		double t1 = 0.80, t2 = 0.2;
 		if(isDesperate) {
-			t1 = t2 = 0.8;
+			t2 = 0.5;
 		}
 		if(RandomSource.nextDouble() < (isDamaging? t1 : t2)) {
 			if(isDamaging)
