@@ -289,6 +289,7 @@ public interface RomHandler {
 	public boolean isYellow();
 
 	public void minimumCatchRate(int rate);
+	public void doubleCatchRate();
 
 	public String getROMName();
 
@@ -319,5 +320,7 @@ public interface RomHandler {
 	// no default arguments is dumb
 	public int getNewLevel(int level);
 	public int getNewLevel(int level, Trainer tr);
+
+	public int pickEvilMove(Pokemon pkmn, int level, int movesLeft);
 
 }

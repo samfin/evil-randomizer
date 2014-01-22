@@ -118,7 +118,6 @@ public abstract class AbstractRomHandler implements RomHandler {
 
 	@Override
 	public void minimumCatchRate(int rate) {
-		System.out.println(rate);
 		List<Pokemon> pokes = getPokemon();
 		for (Pokemon pkmn : pokes) {
 			if (pkmn == null || pkmn.catchRate >= rate) {
@@ -126,7 +125,17 @@ public abstract class AbstractRomHandler implements RomHandler {
 			}
 			pkmn.catchRate = rate;
 		}
+	}
 
+	@Override
+	public void doubleCatchRate() {
+		List<Pokemon> pokes = getPokemon();
+		for (Pokemon pkmn : pokes) {
+			if (pkmn == null) {
+				continue;
+			}
+			pkmn.catchRate = Math.min(255, 2 * pkmn.catchRate);
+		}
 	}
 
 	@Override
@@ -386,9 +395,6 @@ public abstract class AbstractRomHandler implements RomHandler {
 							allPokes.removeAll(banned);
 						}
 					}
-					if(isEvil) {
-						enc.level = getNewLevel(enc.level);
-					}
 				}
 			}
 		} else if (typeThemed) {
@@ -409,9 +415,6 @@ public abstract class AbstractRomHandler implements RomHandler {
 						enc.pokemon = possiblePokemon.get(RandomSource
 								.nextInt(possiblePokemon.size()));
 					}
-					if(isEvil) {
-						enc.level = getNewLevel(enc.level);
-					}
 				}
 			}
 		} else {
@@ -426,7 +429,9 @@ public abstract class AbstractRomHandler implements RomHandler {
 								: randomPokemon();
 					}
 					if(isEvil) {
-						enc.level = getNewLevel(enc.level);
+						if(enc.level >= 8) {
+							enc.level = getNewLevel(enc.level + 5);
+						}
 					}
 				}
 			}
@@ -659,6 +664,13 @@ public abstract class AbstractRomHandler implements RomHandler {
 				tp.pokemon = pickReplacement(tp.pokemon, usePowerLevels, null,
 						noLegendaries, shedAllowed);
 				if(isEvil) {
+					if(tp.level >= 30) {
+						while(true) {
+							Pokemon pkmn = randomEvolution(tp.pokemon);
+							if(pkmn == null) break;
+							tp.pokemon = pkmn;
+						}
+					}
 					tp.level = getNewLevel(tp.level, t);
 				}
 			}
@@ -796,6 +808,9 @@ public abstract class AbstractRomHandler implements RomHandler {
 			List<MoveLearnt> moves = movesets.get(pkmn);
 			// Last level 1 move should be replaced with a damaging one
 			int damagingMove = pickMove(pkmn, typeThemed, true);
+			while(banned.contains(damagingMove)) {
+				damagingMove = pickMove(pkmn, typeThemed, true);
+			}
 			// Find last lv1 move
 			// lv1index ends up as the index of the first non-lv1 move
 			int lv1index = 0;
@@ -805,14 +820,27 @@ public abstract class AbstractRomHandler implements RomHandler {
 			// last lv1 move is 1 before lv1index
 			moves.get(lv1index - 1).move = damagingMove;
 			learnt.add(damagingMove);
+			// Count number of moves learned before level 60
+			int nMoves = 0;
+			while(nMoves < moves.size() && moves.get(nMoves).level < 60)
+				nMoves++;
 			// Rest replace with randoms
 			for (int i = 0; i < moves.size(); i++) {
 				if (i == (lv1index - 1)) {
 					continue;
 				}
-				int picked = pickMove(pkmn, typeThemed, false);
-				while (learnt.contains(picked) || banned.contains(picked)) {
+				int level = moves.get(i).level;
+				int picked;
+				if(isEvil) {
+					picked = pickEvilMove(pkmn, level, nMoves - i - 1);
+					while (learnt.contains(picked) || banned.contains(picked)) {
+						picked = pickEvilMove(pkmn, level, nMoves - i - 1);
+					}
+				} else {
 					picked = pickMove(pkmn, typeThemed, false);
+					while (learnt.contains(picked) || banned.contains(picked)) {
+						picked = pickMove(pkmn, typeThemed, false);
+					}
 				}
 				moves.get(i).move = picked;
 				learnt.add(picked);
@@ -1618,6 +1646,22 @@ public abstract class AbstractRomHandler implements RomHandler {
 		return 0;
 	}
 
+	private Pokemon randomEvolution(Pokemon pk) {
+		List<Evolution> evos = this.getEvolutions();
+		List<Pokemon> pokes = this.getPokemon();
+		ArrayList<Evolution> possible = new ArrayList<Evolution>();
+		for (Evolution e : evos) {
+			if (e.from == pk.number) {
+				possible.add(e);
+			}
+		}
+		if(!possible.isEmpty()) {
+			Evolution e = possible.get(RandomSource.nextInt(possible.size()));
+			return pokes.get(e.to);
+		}
+		return null;
+	}
+
 	private Pokemon firstEvolution(Pokemon pk) {
 		List<Evolution> evos = this.getEvolutions();
 		List<Pokemon> pokes = this.getPokemon();
@@ -1789,6 +1833,7 @@ public abstract class AbstractRomHandler implements RomHandler {
 	public void setEvilMode() {
 		this.isEvil = true;
 		this.fixTrainerAI();
+		this.doubleCatchRate();
 	}
 
 	@Override
@@ -1807,5 +1852,115 @@ public abstract class AbstractRomHandler implements RomHandler {
 	@Override
 	public int getNewLevel(int level) {
 		return getNewLevel(level, null);
+	}
+
+	Map<Integer, List<Move>> movesByEffect = null;
+	final int[] gen1Effects = {15, 22, 25, 32, 40, 49, 53, 57, 59, 56, 57, 64, 65, 67};
+
+	public static double spcProb(double x) {
+		if(x < 0.5) {
+			return 1 - spcProb(1 - x);
+		}
+		// Map [0.5, 1] to [0,1]
+		x = 2 * (x - 0.5);
+		// Why not 0.4?
+		return 0.5 + 0.5 * Math.pow(x, 0.4);
+	}
+
+	@Override
+	public int pickEvilMove(Pokemon pkmn, int level, int movesLeft) {
+		// TODO: Actually check this somewhere
+		boolean isGen1 = true;
+
+		List<Move> allMoves = this.getMoves();
+		
+		if(movesByEffect == null) {
+			movesByEffect = new HashMap<Integer, List<Move>>();
+			for(Move move : allMoves) {
+				if(move == null) continue;
+				int k = move.effectIndex;
+				if(!movesByEffect.containsKey(k))
+					movesByEffect.put(k, new ArrayList<Move>());
+				movesByEffect.get(k).add(move);
+			}
+		}
+
+		// Get a random base move
+		Move base = allMoves.get(pickMove(pkmn, false, false));
+		int moveType = 0;
+
+		boolean isDesperate = (level >= 30 || movesLeft < 2);
+		boolean isDamaging = RandomSource.nextDouble() < 0.75;
+		// t1 = probability of evil damaging move, t2 = probability of evil status move
+		double t1 = 0.70, t2 = 0.2;
+		if(isDesperate) {
+			t1 = t2 = 0.8;
+		}
+		if(RandomSource.nextDouble() < (isDamaging? t1 : t2)) {
+			if(isDamaging)
+				moveType = 1;
+			else
+				moveType = 2;
+		}
+		// If its not evil, just return the base move
+		if(moveType == 0) return base.number;
+
+		List<Move> canPick = new ArrayList<Move>();
+		if(moveType == 2) {
+			if(isGen1) {
+				for(int effectIndex : gen1Effects) {
+					if(!movesByEffect.containsKey(effectIndex))
+						continue;
+					for(Move mv : movesByEffect.get(effectIndex)) {
+						if(!RomFunctions.bannedRandomMoves[mv.number])
+							canPick.add(mv);
+						if(mv.number == 114 && (level >= 40 || isDesperate)) {
+							// Make haze more likely
+							canPick.add(mv);
+						}
+					}
+				}
+			} else {
+				// TODO: get effect list for later gens
+			}
+		} else if(moveType == 1) {
+			// Determine physical/special based on stats
+			boolean isSpecial = false;
+			double atk = pkmn.attack;
+			double spatk = pkmn.spatk;
+			if(spatk == 0)
+				spatk = pkmn.special;
+			// Take ivs into account
+			if(isGen1) {
+				atk += 9;
+				spatk += 8;
+			}
+			double p = spcProb(spatk / (spatk + atk));
+			isSpecial = RandomSource.nextDouble() < p;
+
+			int minPwr = 1, maxPwr = 250;
+			if(RandomSource.nextDouble() < 0.5) {
+				if(isDesperate) {
+					minPwr = 65;
+					maxPwr = 120;
+				} else if(level >= 10) {
+					minPwr = 40;
+				}
+			}
+			for (Move mv : allMoves) {
+				if (mv != null && (isGen1 && mv.number == 127 || !RomFunctions.bannedRandomMoves[mv.number])) {
+					boolean stab = (mv.type == pkmn.primaryType || mv.type == pkmn.secondaryType);
+					if (mv.power >= minPwr && mv.power <= maxPwr && !RomFunctions.bannedForDamagingMove[mv.number] && (stab || isSpecial == mv.isSpecial())) {
+						canPick.add(mv);
+					}
+				}
+			}
+		}
+		// If we ended up with no results, just return the base
+		if (canPick.size() == 0) {
+			return base.number;
+		} else {
+			return canPick.get(RandomSource.nextInt(canPick.size())).number;
+		}
 	}
 }

@@ -43,4 +43,11 @@ public class Move {
 		hitratio = percent;
 	}
 
+	public boolean isSpecial() {
+		return (type == Type.WATER || type == Type.GRASS
+				|| type == Type.FIRE || type == Type.ELECTRIC
+				|| type == Type.ICE || type == Type.PSYCHIC
+				|| type == Type.DARK || type == Type.DRAGON);
+	}
+
 }
