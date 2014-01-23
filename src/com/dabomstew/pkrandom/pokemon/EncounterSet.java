@@ -29,6 +29,7 @@ import java.util.List;
 public class EncounterSet {
 
 	public int rate;
+	public boolean isEarly = false;
 	public List<Encounter> encounters = new ArrayList<Encounter>();
 	public boolean battleTrappersBanned = false;
 

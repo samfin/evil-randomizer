@@ -429,9 +429,9 @@ public abstract class AbstractRomHandler implements RomHandler {
 								: randomPokemon();
 					}
 					if(isEvil) {
-						if(enc.level >= 8) {
-							enc.level = getNewLevel(enc.level + 5);
-						}
+						// Don't add as many levels to early places so player can run away
+						int n = area.isEarly? 0 : 5;
+						enc.level = getNewLevel(enc.level + n);
 					}
 				}
 			}
@@ -894,9 +894,12 @@ public abstract class AbstractRomHandler implements RomHandler {
 				: Collections.EMPTY_LIST;
 		for (int i = 0; i < tmCount; i++) {
 			int chosenMove = RandomSource.nextInt(allMoves.size() - 1) + 1;
+			// Make good TMs more likely in evil mode
 			while (newTMs.contains(chosenMove)
 					|| RomFunctions.bannedRandomMoves[chosenMove]
-					|| banned.contains(chosenMove)) {
+					|| banned.contains(chosenMove)
+					|| isEvil && allMoves.get(chosenMove).power <= 40 && RandomSource.random() < 0.5
+				  ) {
 				chosenMove = RandomSource.nextInt(allMoves.size() - 1) + 1;
 			}
 			newTMs.add(chosenMove);
@@ -918,6 +921,8 @@ public abstract class AbstractRomHandler implements RomHandler {
 				int move = tmHMs.get(i - 1);
 				Move mv = moveData.get(move);
 				double probability = 0.5;
+				// Make learning easier in evil mode
+				if(isEvil) probability = 0.7;
 				if (preferSameType) {
 					if (pkmn.primaryType.equals(mv.type)
 							|| (pkmn.secondaryType != null && pkmn.secondaryType
