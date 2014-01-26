@@ -1972,14 +1972,27 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 		int[] answers = new int[6];
 	}
 
-	// Mirror move, haze, recover, evasion
-	int[] mod2Effects = {9, 25, 56, 15, 22};
+	// Mirror move, haze, recover, evasion, more evasion, dream eater, super fang
+	int[] mod2Effects = {9, 25, 56, 15, 22, 8, 40};
 	String[] mod2Functions = {
 		"0e01c3.",
 		"af211acd0607052804862318f90e01fe2bda.0e00fe2cda.0efffe2dda.0efdc3.",
 		"faf5cf47fae7cf8738060efeb8da.0e02c3.",
 		"0e05fa33cdfe0ad2.fa63d0cb47ca1f7ec3.",
-		"/ 3 0"
+		"/ 3 0",
+		"fa18d00e05e607ca.0e00c3.",
+		"faf5cf47fae7cf8738060e01b8da.0effc3.",
+	};
+	String[] mod2Table = {
+		"00", "00", "00", "00", "00", "00", "00", "00", "00", "00",
+		"01", "01", "00", "00", "00", "00", "00", "00", "01", "01",
+		"01", "00", "ff", "00", "01", "00", "01", "00", "05", "00",
+		"00", "00", "ff", "00", "00", "00", "00", "00", "00", "00",
+		"00", "00", "00", "00", "00", "00", "05", "05", "00", "fe",
+		"01", "01", "01", "01", "00", "00", "00", "ff", "00", "01",
+		"00", "00", "00", "00", "01", "01", "00", "fe", "00", "00",
+		"00", "00", "00", "00", "00", "00", "00", "00", "00", "01",
+		"00", "00", "01", "00", "01", "05", "00", "00", "00", "00"
 	};
 	public String addr2str(int addr) {
 		addr = addr % 0x4000 + 0x4000;
@@ -1988,8 +2001,11 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 	public String createMod2(int base_addr) {
 		String start = "34e5c5facdcf";
 		String defaultFunction = "21.06004f094e";
-		String table = "00000000000000000000010100ff0000000001010100ff000100010005000000ff00000000000000000000000000050500fe01010101000000ff000100000000010100fe00000000000000000000000100000100010500000000";
-		String end = "79c1e18677c31f58";
+		StringBuilder sb = new StringBuilder();
+		for(String s : mod2Table)
+			sb.append(s);
+		String table = sb.toString();
+		String end = "79c1e18677facecfa72803c33358c31f58";
 
 		int n = mod2Effects.length;
 		assert mod2Functions.length == n;
@@ -2041,7 +2057,7 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 
 		String mod1 = "21e8ce11edcf060505c8231aa7c813cd8458facecfa720f0facccffe562014fa19d0fe042809fa1ad0fe04280218047ec60577facdcf4ffe422015fa19d0fe032809fa1ad0fe03280218047ec6057779fe31200bfa62d0cb7f28047ec60577fa18d0a728a379e5d5c521e257110100cdab3dc1d1e130917ec60577188b";
 
-		String mod3 = "21e8ce11edcf060505c8231aa7c813cd8458cd5c3ee6018677facecfa7ca007ee5c5d521d07b060fcdd635d1c1e1fa1ed1c58677facfcf47faeacfb82808faebcfb82802180135facecffe29300134c118b6c9";
+		String mod3 = "21e8ce11edcf060505c8231aa7c813cd8458cd5c3ee6018677c3007ee5c5d521d07b060fcdd635d1c1e1fa1ed1c58677facfcf47faeacfb82808faebcfb82802180135facecffe29300134c118ba00";
 		String typeEffectiveness = "facfcf572119d046234eafea1ed121d07c2afeffc8ba20092ab82809b928061801232318ecfa1ed18623ea1ed118e2";
 		String typeEffectivenessArray = "1514fe1416fe1419fe1615fe1715fe1505fe0402051515021414021717021919021616021818021415021614021516021716020005020008050808fe1407fe1405021504fe1704051702fe1604fe1607021603021605fe1602021915021916fe1904fe1902fe0100fe0103020102020118020107020105fe0119fe0108050316fe0303020304020307fe0305020308020414fe0417fe0416020407020405fe0403fe0217020201fe0207fe0216fe0205021801fe1803fe0714020716fe0701020702020718fe0708020703fe0514fe0501020504020502fe0507fe0519fe080005081805141a02151a02171a02161a02191afe1a1afeff";
 		String modTable = "01030001000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000100010300010300010300010300010300010300010300010300010300010300010300010300010300";
@@ -2059,6 +2075,21 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 			writeHexString("f07c", 0x397a3);
 
 			writeHexString(mod2, 0x3be00);
+
+			// Get rid of x defends, etc.
+			int offset = 0x3a55c;
+			for(int i = 0; i < 47; i++) {
+				if(i == 0x19 || i == 0x1C)
+					writeHexString("015866", offset);
+				else if(i >= 0x25 && i <= 0x27)
+					writeHexString("018766", offset);
+				else if(i != 33 && i != 42 && i != 46)
+					writeHexString("039366", offset);
+				offset += 3;
+			}
+			// zero out some stuff i dont like
+			writeHexString("0000003e03", 0x3a658);
+			writeHexString("0000003e03", 0x3a687);
 		}
 	}
 
