@@ -970,6 +970,9 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 		return pokes[(int) (RandomSource.random() * 151 + 1)];
 	}
 
+	int[] encounterAreaLevels = {0, 0, 0, 0, 13, 14, 14, 16, 18, 21, 21, 28, 28, 28, 28, 30, 30, 30, 40, 33, 33, 30, 30, 30, 30, 30,
+								 40, 40, 40, 34, 38, 38, 38, 39, 39, 40, 43, 46, 47, 48, 49, 50, 46, 47, 48, 49, 45, 43, 76, 80, 85,
+								 47, 58, 59, 61, 58, 32};
 	@Override
 	public List<EncounterSet> getEncounters(boolean useTimeOfDay) {
 		List<EncounterSet> encounters = new ArrayList<EncounterSet>();
@@ -994,8 +997,7 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 						break;
 					}
 				}
-				if(i < 8)
-					thisSet.isEarly = true;
+				thisSet.recommendedLevel = encounterAreaLevels[i];
 				encounters.add(thisSet);
 				i++;
 			}
@@ -1978,10 +1980,11 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 		"0e01c3.",
 		"af211acd0607052804862318f90e01fe2bda.0e00fe2cda.0efffe2dda.0efdc3.",
 		"faf5cf47fae7cf8738060efeb8da.0e02c3.",
-		"0e05fa33cdfe0ad2.fa63d0cb47ca1f7ec3.",
+		"0e05fa33cdff0ad2.fa63d0cb47ca1f7ec3.",
 		"/ 3 0",
 		"fa18d00e05e607ca.0e00c3.",
 		"faf5cf47fae7cf8738060e01b8da.0effc3.",
+		"",
 	};
 	String[] mod2Table = {
 		"00", "00", "00", "00", "00", "00", "00", "00", "00", "00",
@@ -2054,12 +2057,11 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 
 	@Override
 	public void fixTrainerAI() {
-
 		String mod1 = "21e8ce11edcf060505c8231aa7c813cd8458facecfa720f0facccffe562014fa19d0fe042809fa1ad0fe04280218047ec60577facdcf4ffe422015fa19d0fe032809fa1ad0fe03280218047ec6057779fe31200bfa62d0cb7f28047ec60577fa18d0a728a379e5d5c521e257110100cdab3dc1d1e130917ec60577188b";
 
 		String mod3 = "21e8ce11edcf060505c8231aa7c813cd8458cd5c3ee6018677c3007ee5c5d521d07b060fcdd635d1c1e1fa1ed1c58677facfcf47faeacfb82808faebcfb82802180135facecffe29300134c118ba00";
 		String typeEffectiveness = "facfcf572119d046234eafea1ed121d07c2afeffc8ba20092ab82809b928061801232318ecfa1ed18623ea1ed118e2";
-		String typeEffectivenessArray = "1514fe1416fe1419fe1615fe1715fe1505fe0402051515021414021717021919021616021818021415021614021516021716020005020008050808fe1407fe1405021504fe1704051702fe1604fe1607021603021605fe1602021915021916fe1904fe1902fe0100fe0103020102020118020107020105fe0119fe0108050316fe0303020304020307fe0305020308020414fe0417fe0416020407020405fe0403fe0217020201fe0207fe0216fe0205021801fe1803fe0714020716fe0701020702020718fe0708020703fe0514fe0501020504020502fe0507fe0519fe080005081805141a02151a02171a02161a02191afe1a1afeff";
+		String typeEffectivenessArray = "1514fe1416fe1419fe1615fe1715fe1505fe04020a15150214140217170219190216160218180214150216140215160217160200050200080a0808fe1407fe1405021504fe17040a1702fe1604fe1607021603021605fe1602021915021916fe1904fe1902fe0100fe0103020102020118020107020105fe0119fe01080a0316fe0303020304020307fe0305020308020414fe0417fe0416020407020405fe0403fe0217020201fe0207fe0216fe0205021801fe1803fe0714020716fe0701020702020718fe0708020703fe0514fe0501020504020502fe0507fe0519fe08000a08180a141a02151a02171a02161a02191afe1a1afeff";
 		String modTable = "01030001000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000100010300010300010300010300010300010300010300010300010300010300010300010300010300";
 		
 		String mod2 = createMod2(0x3be00);
@@ -2081,16 +2083,23 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 			for(int i = 0; i < 47; i++) {
 				if(i == 0x19 || i == 0x1C)
 					writeHexString("015866", offset);
-				else if(i >= 0x25 && i <= 0x27)
+				else if(i >= 0x22 && i <= 0x23)
+					writeHexString("016466", offset);
+				else if(i >= 0x24 && i <= 0x27)
 					writeHexString("018766", offset);
 				else if(i != 33 && i != 42 && i != 46)
 					writeHexString("039366", offset);
 				offset += 3;
 			}
-			// zero out some stuff i dont like
+			// make healing items more likely
 			writeHexString("0000003e03", 0x3a658);
+			writeHexString("0000003e03", 0x3a664);
 			writeHexString("0000003e03", 0x3a687);
 		}
+
+		// Make x accuracy fail with ohkos, wrap, and sleep moves
+		writeHexString("c3007f", 0x3e5c7);
+		writeHexString("fad3cffe20cacd65fe26cacd65fe2acacd65fa63d0cb47c0c3cd65", 0x3ff00);
 	}
 
 	@Override
@@ -2107,8 +2116,8 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 				return level;
 			}
 		}
-		int[] x = {1, 7, 13, 14, 18, 24, 29, 33, 40, 43, 45, 50, 55, 60, 63, 65, 100, 255};
-		int[] y = {1, 7, 15, 16, 24, 30, 35, 40, 47, 51, 54, 60, 70, 85, 94, 110, 100, 255};
+		int[] x = {1, 7, 13, 14, 18, 24, 29, 33, 40, 43, 45, 48, 53, 57, 61, 63, 65,  70,  100, 255};
+		int[] y = {1, 7, 15, 16, 24, 30, 35, 40, 47, 51, 54, 60, 70, 80, 92, 98, 108, 127, 100, 255};
 		int i = 0;
 		while(level >= x[i+1]) i++;
 		double t = (level - x[i]) / (double) (x[i+1] - x[i]);

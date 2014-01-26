@@ -428,10 +428,9 @@ public abstract class AbstractRomHandler implements RomHandler {
 						enc.pokemon = noLegendaries ? randomNonLegendaryPokemon()
 								: randomPokemon();
 					}
-					if(isEvil) {
+					if(isEvil && area.recommendedLevel > 0) {
 						// Don't add as many levels to early places so player can run away
-						int n = area.isEarly? 0 : 5;
-						enc.level = getNewLevel(enc.level + n);
+						enc.level = area.recommendedLevel - RandomSource.nextInt(4);
 					}
 				}
 			}
@@ -659,11 +658,16 @@ public abstract class AbstractRomHandler implements RomHandler {
 			if (t.tag != null && t.tag.equals("IRIVAL")) {
 				continue; // skip
 			}
+			int ind = 0;
 			for (TrainerPokemon tp : t.pokemon) {
 				boolean shedAllowed = (!noEarlyShedinja) || tp.level >= 20;
 				tp.pokemon = pickReplacement(tp.pokemon, usePowerLevels, null,
 						noLegendaries, shedAllowed);
 				if(isEvil) {
+					while(ind == 0 && tp.pokemon.isLegendary()) {
+						tp.pokemon = pickReplacement(tp.pokemon, usePowerLevels, null,
+							noLegendaries, shedAllowed);
+					}
 					if(tp.level >= 30) {
 						while(true) {
 							Pokemon pkmn = randomEvolution(tp.pokemon);
@@ -673,6 +677,7 @@ public abstract class AbstractRomHandler implements RomHandler {
 					}
 					tp.level = getNewLevel(tp.level, t);
 				}
+				ind += 1;
 			}
 		}
 
