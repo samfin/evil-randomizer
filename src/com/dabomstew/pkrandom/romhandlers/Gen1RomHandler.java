@@ -1948,8 +1948,97 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 		return RomFunctions.itemNames[0];
 	}
 
+	public void randomizeBlaineQuiz() {
+		String questionsFile = "gen1quiz.txt";
+		if (FileFunctions.configExists(questionsFile)) {
+			try {
+				Scanner sc = new Scanner(FileFunctions.openConfig(questionsFile),
+					"UTF-8");
+				while (sc.hasNextLine()) {
+					String question = sc.nextLine().trim();
+					if (question.isEmpty()) {
+						continue;
+					}
+					int answer = Integer.parseInt(sc.nextLine().trim());
+					System.out.println(question);
+					System.out.println(answer);
+				}
+				sc.close();
+			} catch (FileNotFoundException e) {
+				// Can't read, just don't load anything
+			}
+		}
+		String[] questions = new String[6];
+		int[] answers = new int[6];
+	}
+
+	// Mirror move, haze, recover, evasion
+	int[] mod2Effects = {9, 25, 56, 15, 22};
+	String[] mod2Functions = {
+		"0e01c3.",
+		"af211acd0607052804862318f90e01fe2bda.0e00fe2cda.0efffe2dda.0efdc3.",
+		"faf5cf47fae7cf8738060efeb8da.0e02c3.",
+		"0e05fa33cdfe0ad2.fa63d0cb47ca1f7ec3.",
+		"/ 3 0"
+	};
+	public String addr2str(int addr) {
+		addr = addr % 0x4000 + 0x4000;
+		return String.format("%02x%02x", addr & 0xff, addr >> 8);
+	}
+	public String createMod2(int base_addr) {
+		String start = "34e5c5facdcf";
+		String defaultFunction = "21.06004f094e";
+		String table = "00000000000000000000010100ff0000000001010100ff000100010005000000ff00000000000000000000000000050500fe01010101000000ff000100000000010100fe00000000000000000000000100000100010500000000";
+		String end = "79c1e18677c31f58";
+
+		int n = mod2Effects.length;
+		assert mod2Functions.length == n;
+
+		// Add 3 to defaultFunction.length because it isn't expanded yet
+		int offset = base_addr + start.length() / 2 + 5*n + (defaultFunction.length() + 3) / 2;
+
+		String end_addr = addr2str(offset);
+		offset += end.length() / 2;
+		String table_addr = addr2str(offset);
+		defaultFunction = defaultFunction.replaceAll("\\.", table_addr);
+		offset += table.length() / 2;
+		int[] addrs = new int[n];
+
+		StringBuilder str = new StringBuilder();
+		StringBuilder data = new StringBuilder();
+		str.append(start);
+		for(int i = 0; i < n; i++) {
+			String code = mod2Functions[i];
+			int addr = offset;
+			boolean isPointer = false;
+			if(code.charAt(0) == '/') {
+				// Not a real function, is a pointer to a previous function
+				isPointer = true;
+				String[] parts = code.split(" ");
+				int ind = Integer.parseInt(parts[1]);
+				int diff = 0;
+				if(parts.length >= 2)
+					diff = Integer.parseInt(parts[2]);
+				addr = addrs[ind] + diff;
+			}
+			addrs[i] = addr;
+			str.append(String.format("fe%02xca%s", mod2Effects[i], addr2str(addr)));
+			if(!isPointer) {
+				code = code.replaceAll("\\.", end_addr);
+				data.append(code);
+				offset += code.length() / 2;
+			}
+		}
+		str.append(defaultFunction);
+		str.append(end);
+		str.append(table);
+		str.append(data.toString());
+		return str.toString();
+	}
+
 	@Override
 	public void fixTrainerAI() {
+
 		String mod1 = "21e8ce11edcf060505c8231aa7c813cd8458facecfa720f0facccffe562014fa19d0fe042809fa1ad0fe04280218047ec60577facdcf4ffe422015fa19d0fe032809fa1ad0fe03280218047ec6057779fe31200bfa62d0cb7f28047ec60577fa18d0a728a379e5d5c521e257110100cdab3dc1d1e130917ec60577188b";
 
 		String mod3 = "21e8ce11edcf060505c8231aa7c813cd8458cd5c3ee6018677facecfa7ca007ee5c5d521d07b060fcdd635d1c1e1fa1ed1c58677facfcf47faeacfb82808faebcfb82802180135facecffe29300134c118b6c9";
@@ -1957,14 +2046,7 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 		String typeEffectivenessArray = "1514fe1416fe1419fe1615fe1715fe1505fe0402051515021414021717021919021616021818021415021614021516021716020005020008050808fe1407fe1405021504fe1704051702fe1604fe1607021603021605fe1602021915021916fe1904fe1902fe0100fe0103020102020118020107020105fe0119fe0108050316fe0303020304020307fe0305020308020414fe0417fe0416020407020405fe0403fe0217020201fe0207fe0216fe0205021801fe1803fe0714020716fe0701020702020718fe0708020703fe0514fe0501020504020502fe0507fe0519fe080005081805141a02151a02171a02161a02191afe1a1afeff";
 		String modTable = "01030001000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000100010300010300010300010300010300010300010300010300010300010300010300010300010300";
 		
-		String mod2 = "34e5c5facdcffe09caa07efe19cad07efe38ca007ffe0fca207ffe16ca207f21407e06004f094ec3307e";
-		String mod2end = "79c1e18677c31f58";
-		String mod2table = "00000000000000000000010100ff0000000001010100ff000100010005000000ff00000000000000000000000000050500fe01010101000000ff000100000000010100fe00000000000000000000000100000100010500000000";
-		String mod2mirrormove = "0e01c3307e";
-		String mod2haze = "af211acd0607052804862318f90e01fe2bda307e0e00fe2cda307e0efffe2dda307e0efdc3307e";
-		String mod2recover = "faf5cf47fae7cf8738060efeb8da307e0e02c3307e";
-		String mod2evasion = "0e05fa33cdfe0ad2307efa63d0cb47ca1f7ec3307e";
-		
+		String mod2 = createMod2(0x3be00);
 
 		if(!romEntry.isYellow) {
 			writeHexString(typeEffectiveness, 0x3fbd0);
@@ -1977,12 +2059,6 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 			writeHexString("f07c", 0x397a3);
 
 			writeHexString(mod2, 0x3be00);
-			writeHexString(mod2end, 0x3be30);
-			writeHexString(mod2table, 0x3be40);
-			writeHexString(mod2mirrormove, 0x3bea0);
-			writeHexString(mod2haze, 0x3bed0);
-			writeHexString(mod2recover, 0x3bf00);
-			writeHexString(mod2evasion, 0x3bf20);
 		}
 	}
 
@@ -2000,8 +2076,8 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 				return level;
 			}
 		}
-		int[] x = {1, 7, 13, 14, 18, 24, 29, 33, 40, 43, 45, 50, 55, 60, 65, 100, 255};
-		int[] y = {1, 7, 15, 16, 24, 30, 35, 40, 47, 51, 54, 60, 65, 70, 75, 100, 255};
+		int[] x = {1, 7, 13, 14, 18, 24, 29, 33, 40, 43, 45, 50, 55, 60, 63, 65, 100, 255};
+		int[] y = {1, 7, 15, 16, 24, 30, 35, 40, 47, 51, 54, 60, 70, 85, 94, 110, 100, 255};
 		int i = 0;
 		while(level >= x[i+1]) i++;
 		double t = (level - x[i]) / (double) (x[i+1] - x[i]);
