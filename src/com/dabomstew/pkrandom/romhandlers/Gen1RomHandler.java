@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -1598,6 +1599,8 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 			writeFixedLengthScriptString(text, tte.offset,
 					lengthOfStringAt(tte.offset));
 		}
+
+		randomizeBlaineQuiz(moveIndexes);
 	}
 
 	@Override
@@ -1950,8 +1953,44 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 		return RomFunctions.itemNames[0];
 	}
 
-	public void randomizeBlaineQuiz() {
+	public String addr2str(int addr) {
+		addr = addr % 0x4000 + 0x4000;
+		return String.format("%02x%02x", addr & 0xff, addr >> 8);
+	}
+
+	public String formatText(String str) {
+		// Add newlines to string so that no line has too many characters
+		final int MAX_CHARS = 17;
+		String[] words = str.split(" ");
+		StringBuilder sb = new StringBuilder();
+		int len = 0;
+		boolean firstLine = true;
+
+		for(String word : words) {
+			int newlen = len + 1 + word.length();
+			if(newlen > MAX_CHARS) {
+				len = 0;
+				if(firstLine)
+					sb.append("\\n");
+				else
+					sb.append("\\l");
+				firstLine = false;
+			} else if(len > 0) {
+				sb.append(" ");
+				len++;
+			}
+			len += word.length();
+			sb.append(word);
+		}
+		sb.append("\\x57");
+
+		return sb.toString();
+	}
+
+	public void randomizeBlaineQuiz(List<Integer> moveIndices) {
 		String questionsFile = "gen1quiz.txt";
+		ArrayList<String> q = new ArrayList<String>();
+		ArrayList<Integer> a = new ArrayList<Integer>();
 		if (FileFunctions.configExists(questionsFile)) {
 			try {
 				Scanner sc = new Scanner(FileFunctions.openConfig(questionsFile),
@@ -1962,16 +2001,67 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 						continue;
 					}
 					int answer = Integer.parseInt(sc.nextLine().trim());
-					System.out.println(question);
-					System.out.println(answer);
+					q.add(question);
+					a.add(answer);
 				}
 				sc.close();
 			} catch (FileNotFoundException e) {
-				// Can't read, just don't load anything
+				// Can't read quiz file, no random questions :(
+				return;
 			}
 		}
 		String[] questions = new String[6];
 		int[] answers = new int[6];
+
+		// Generate first 4 questions
+		Integer[] x = new Integer[q.size()];
+		for(int i = 0; i < x.length; i++)
+			x[i] = i;
+		Collections.shuffle(Arrays.asList(x));
+		for(int i = 0; i < 4; i++) {
+			questions[i] = q.get(x[i]);
+			answers[i] = a.get(x[i]);
+		}
+
+		// Fifth question: early TM
+		int[] choices = {12, 11, 45, 28, 24};
+		int tm = choices[RandomSource.nextInt(choices.length)];
+		String move;
+		if(RandomSource.random() < 0.5) {
+			// Correct move
+			move = RomFunctions.moveNames[moveIndices.get(tm - 1)];
+			answers[4] = 1;
+		} else {
+			// Wrong move
+			int fakeTM = tm;
+			while(fakeTM == tm)
+				fakeTM = choices[RandomSource.nextInt(choices.length)];
+			move = RomFunctions.moveNames[moveIndices.get(fakeTM - 1)];
+			answers[4] = 0;
+		}
+		questions[4] = "TM" + tm + " contains " + move + "?";
+
+		// Sixth question: early question
+		String[] y = {"first", "second", "third"};
+		int k = RandomSource.nextInt(y.length);
+		questions[5] = "What was the answer to the " + y[k] + " question?";
+		answers[5] = answers[k];
+
+		// Write the new questions
+		int[] offsets = {0x8ad00, 0x8ae00, 0x8af00, 0x8b000, 0x8b100, 0x8b200};
+		for(int i = 0; i < 6; i++) {
+			// Write the new text
+			writeFixedLengthScriptString(formatText(questions[i]), offsets[i] + 1, 255);
+			// Point the text to the new text
+			writeHexString(addr2str(offsets[i]), 0x1ea6d + 5*i);
+			// Write the answers
+			int ans = answers[i];
+			if(ans != 0 && ans != 1)
+				ans = 2;
+			else
+				ans = 1-ans;
+			writeHexString(String.format("%02x", (ans << 4) + (i+1)), 0x46df6 + 6*i);
+		}
 	}
 
 	// Mirror move, haze, recover, evasion, more evasion, dream eater, super fang
@@ -1980,7 +2070,7 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 		"0e01c3.",
 		"af211acd0607052804862318f90e01fe2bda.0e00fe2cda.0efffe2dda.0efdc3.",
 		"faf5cf47fae7cf8738060efeb8da.0e02c3.",
-		"0e05fa33cdff0ad2.fa63d0cb47ca1f7ec3.",
+		"0e05fa33cdfe0ad2.fa63d0cb47ca1f7ec3.",
 		"/ 3 0",
 		"fa18d00e05e607ca.0e00c3.",
 		"faf5cf47fae7cf8738060e01b8da.0effc3.",
@@ -1992,15 +2082,11 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 		"01", "00", "ff", "00", "01", "00", "01", "00", "05", "00",
 		"00", "00", "ff", "00", "00", "00", "00", "00", "00", "00",
 		"00", "00", "00", "00", "00", "00", "05", "05", "00", "fe",
-		"01", "01", "01", "01", "00", "00", "00", "ff", "00", "01",
+		"01", "01", "01", "01", "00", "00", "00", "fe", "00", "01",
 		"00", "00", "00", "00", "01", "01", "00", "fe", "00", "00",
 		"00", "00", "00", "00", "00", "00", "00", "00", "00", "01",
 		"00", "00", "01", "00", "01", "05", "00", "00", "00", "00"
 	};
-	public String addr2str(int addr) {
-		addr = addr % 0x4000 + 0x4000;
-		return String.format("%02x%02x", addr & 0xff, addr >> 8);
-	}
 	public String createMod2(int base_addr) {
 		String start = "34e5c5facdcf";
 		String defaultFunction = "21.06004f094e";
@@ -2063,7 +2149,7 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 		String typeEffectiveness = "facfcf572119d046234eafea1ed121d07c2afeffc8ba20092ab82809b928061801232318ecfa1ed18623ea1ed118e2";
 		String typeEffectivenessArray = "1514fe1416fe1419fe1615fe1715fe1505fe04020a15150214140217170219190216160218180214150216140215160217160200050200080a0808fe1407fe1405021504fe17040a1702fe1604fe1607021603021605fe1602021915021916fe1904fe1902fe0100fe0103020102020118020107020105fe0119fe01080a0316fe0303020304020307fe0305020308020414fe0417fe0416020407020405fe0403fe0217020201fe0207fe0216fe0205021801fe1803fe0714020716fe0701020702020718fe0708020703fe0514fe0501020504020502fe0507fe0519fe08000a08180a141a02151a02171a02161a02191afe1a1afeff";
 		String modTable = "01030001000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000103000100010300010300010300010300010300010300010300010300010300010300010300010300010300";
-		
+
 		String mod2 = createMod2(0x3be00);
 
 		if(!romEntry.isYellow) {
@@ -2095,11 +2181,20 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 			writeHexString("0000003e03", 0x3a658);
 			writeHexString("0000003e03", 0x3a664);
 			writeHexString("0000003e03", 0x3a687);
-		}
 
-		// Make x accuracy fail with ohkos, wrap, and sleep moves
-		writeHexString("c3007f", 0x3e5c7);
-		writeHexString("fad3cffe20cacd65fe26cacd65fe2acacd65fa63d0cb47c0c3cd65", 0x3ff00);
+			// The rest of this has nothing to do with AI but is here because lazy
+			// Make x accuracy fail with ohkos, wrap, and sleep moves
+			writeHexString("c3007f", 0x3e5c7);
+			writeHexString("fad3cffe20cacd65fe26cacd65fe2acacd65fa63d0cb47c0c3cd65", 0x3ff00);
+
+			// Increase static pokemon levels
+			// Magikarp
+			writeHexString("0f", 0x4931f);
+			// Eevee
+			writeHexString("25", 0x1dd48);
+			// Lapras
+			writeHexString("2d", 0x51dac);
+		}
 	}
 
 	@Override
@@ -2114,10 +2209,14 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 			} else if(tr.trainerclass == 25 && tr.trainerindex >= 6 && tr.trainerindex <= 8) {
 				// Cerulean rival
 				return level;
+			} else if(tr.trainerclass >= 37 && tr.trainerclass <= 40 || tr.trainerclass == 29 && tr.trainerindex == 2) {
+				// Erika, Koga, Sabrina, Blaine, Giovanni 3
+				return level + 16;
 			}
 		}
-		int[] x = {1, 7, 13, 14, 18, 24, 29, 33, 40, 43, 45, 48, 53, 57, 61, 63, 65,  70,  100, 255};
-		int[] y = {1, 7, 15, 16, 24, 30, 35, 40, 47, 51, 54, 60, 70, 80, 92, 98, 108, 127, 100, 255};
+		// piecewise linear function with these points
+		int[] x = {1, 7, 13, 14, 18, 24, 29, 33, 40, 43, 45, 48, 53, 57, 61, 65,  70,  100, 255};
+		int[] y = {1, 7, 15, 16, 24, 30, 35, 43, 50, 54, 57, 60, 70, 80, 91, 100, 127, 100, 255};
 		int i = 0;
 		while(level >= x[i+1]) i++;
 		double t = (level - x[i]) / (double) (x[i+1] - x[i]);
