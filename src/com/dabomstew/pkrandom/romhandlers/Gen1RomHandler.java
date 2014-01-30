@@ -2070,16 +2070,15 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 		"0e01c3.",
 		"af211acd0607052804862318f90e01fe2bda.0e00fe2cda.0efffe2dda.0efdc3.",
 		"faf5cf47fae7cf8738060efeb8da.0e02c3.",
-		"0e05fa33cdfe0ad2.fa63d0cb47ca1f7ec3.",
-		"/ 3 0",
+		"0e05fa33cdfe0ad2.fa63d0cb47c2.0e00c3.",
+		"0e05fa33cdfe0ad2.fa63d0cb47c2.0effc3.",
 		"fa18d00e05e607ca.0e00c3.",
-		"faf5cf47fae7cf8738060e01b8da.0effc3.",
-		"",
+		"fad02447fa16d08738060e01b8da.0effc3.",
 	};
 	String[] mod2Table = {
 		"00", "00", "00", "00", "00", "00", "00", "00", "00", "00",
 		"01", "01", "00", "00", "00", "00", "00", "00", "01", "01",
-		"01", "00", "ff", "00", "01", "00", "01", "00", "05", "00",
+		"01", "00", "00", "00", "01", "00", "01", "00", "05", "00",
 		"00", "00", "ff", "00", "00", "00", "00", "00", "00", "00",
 		"00", "00", "00", "00", "00", "00", "05", "05", "00", "fe",
 		"01", "01", "01", "01", "00", "00", "00", "fe", "00", "01",
@@ -2088,13 +2087,13 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 		"00", "00", "01", "00", "01", "05", "00", "00", "00", "00"
 	};
 	public String createMod2(int base_addr) {
-		String start = "34e5c5facdcf";
+		String start = "e5c5facdcf";
 		String defaultFunction = "21.06004f094e";
 		StringBuilder sb = new StringBuilder();
 		for(String s : mod2Table)
 			sb.append(s);
 		String table = sb.toString();
-		String end = "79c1e18677facecfa72803c33358c31f58";
+		String end = "79c1e18677facecfa72003c31f58c5faf3cf3c47fa22d087b830053535353535c1c33358";
 
 		int n = mod2Effects.length;
 		assert mod2Functions.length == n;
@@ -2194,6 +2193,12 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 			writeHexString("25", 0x1dd48);
 			// Lapras
 			writeHexString("2d", 0x51dac);
+
+			// Ban healing items in battle
+			// fa 91 cf fe 3d
+			writeHexString("c3507c", 0xdcc5);
+			writeHexString("fa57d0fe02201dfa06cf47fa2fccb82013fa31d011010021007ecdab3d3005d1e1c3735dfa91cffe3d063c281606503012fe3c0632280cfe1306c83806063228020614c3e45c", 0xfc50);
+			writeHexString("252627281d2c212e2f2b1aff", 0xfe00);
 		}
 	}
 

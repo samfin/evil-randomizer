@@ -1865,7 +1865,7 @@ public abstract class AbstractRomHandler implements RomHandler {
 	}
 
 	Map<Integer, List<Move>> movesByEffect = null;
-	final int[] gen1Effects = {15, 22, 25, 32, 40, 49, 53, 57, 59, 56, 57, 64, 65, 67};
+	final int[] gen1Effects = {15, 22, 25, 32, 40, 49, 53, 59, 56, 57, 66, 67};
 
 	public static double spcProb(double x) {
 		if(x < 0.5) {
@@ -1918,17 +1918,27 @@ public abstract class AbstractRomHandler implements RomHandler {
 		List<Move> canPick = new ArrayList<Move>();
 		if(moveType == 2) {
 			if(isGen1) {
+				/*
+				// Make haze more likely
+				if(RandomSource.random() < 0.1) {
+					return 114;
+				}
 				for(int effectIndex : gen1Effects) {
 					if(!movesByEffect.containsKey(effectIndex))
 						continue;
 					for(Move mv : movesByEffect.get(effectIndex)) {
+						// Handle haze somewhere else
+						if(mv.number == 114)
+							continue;
 						if(!RomFunctions.bannedRandomMoves[mv.number])
 							canPick.add(mv);
-						if(mv.number == 114 && (level >= 40 || isDesperate)) {
-							// Make haze more likely
-							canPick.add(mv);
-						}
 					}
+				}
+				*/
+				int effectIndex = gen1Effects[RandomSource.nextInt(gen1Effects.length)];				
+				for(Move mv : movesByEffect.get(effectIndex)) {
+					if(!RomFunctions.bannedRandomMoves[mv.number])
+						canPick.add(mv);
 				}
 			} else {
 				// TODO: get effect list for later gens
@@ -1957,11 +1967,19 @@ public abstract class AbstractRomHandler implements RomHandler {
 					minPwr = 40;
 				}
 			}
-			for (Move mv : allMoves) {
-				if (mv != null && (isGen1 && mv.number == 127 || !RomFunctions.bannedRandomMoves[mv.number])) {
-					boolean stab = (mv.type == pkmn.primaryType || mv.type == pkmn.secondaryType);
-					if (mv.power >= minPwr && mv.power <= maxPwr && !RomFunctions.bannedForDamagingMove[mv.number] && (stab || isSpecial == mv.isSpecial())) {
-						canPick.add(mv);
+			while(canPick.size() == 0) {
+				// Get random type
+				Type type = Type.randomType();
+				while(isGen1 && !type.isInRBY()) {
+					type = Type.randomType();
+				}
+				for (Move mv : allMoves) {
+					// Waterfall = 127, don't want it to be banned in gen 1
+					if (mv != null && (isGen1 && mv.number == 127 || !RomFunctions.bannedRandomMoves[mv.number])) {
+						// boolean stab = (mv.type == pkmn.primaryType || mv.type == pkmn.secondaryType);
+						if (mv.type == type && mv.power >= minPwr && mv.power <= maxPwr && !RomFunctions.bannedForDamagingMove[mv.number] && (isSpecial == mv.isSpecial())) {
+							canPick.add(mv);
+						}
 					}
 				}
 			}
@@ -1970,7 +1988,8 @@ public abstract class AbstractRomHandler implements RomHandler {
 		if (canPick.size() == 0) {
 			return base.number;
 		} else {
-			return canPick.get(RandomSource.nextInt(canPick.size())).number;
+			Move move = canPick.get(RandomSource.nextInt(canPick.size()));
+			return move.number;
 		}
 	}
 }
