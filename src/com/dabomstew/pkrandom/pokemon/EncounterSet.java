@@ -32,6 +32,8 @@ public class EncounterSet {
 	public int recommendedLevel = 0;
 	public List<Encounter> encounters = new ArrayList<Encounter>();
 	public boolean battleTrappersBanned = false;
+	public String displayName;
+	public int offset;
 
 	public String toString() {
 		return "Encounter [Rate = " + rate + ", Encounters = " + encounters

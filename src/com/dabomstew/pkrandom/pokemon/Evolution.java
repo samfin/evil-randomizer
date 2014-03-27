@@ -23,11 +23,22 @@ package com.dabomstew.pkrandom.pokemon;
 /*--  along with this program. If not, see <http://www.gnu.org/licenses/>.  --*/
 /*----------------------------------------------------------------------------*/
 
-public class Evolution {
+public class Evolution implements Comparable<Evolution> {
 
 	public int from;
 	public int to;
 	public boolean carryStats;
+	
+	public Evolution() {
+		super();
+	}
+
+	public Evolution(int from, int to, boolean carryStats) {
+		super();
+		this.from = from;
+		this.to = to;
+		this.carryStats = carryStats;
+	}
 
 	@Override
 	public int hashCode() {
@@ -52,6 +63,21 @@ public class Evolution {
 		if (to != other.to)
 			return false;
 		return true;
+	}
+
+	@Override
+	public int compareTo(Evolution o) {
+		if (this.from < o.from) {
+			return -1;
+		} else if (this.from > o.from) {
+			return 1;
+		} else if (this.to < o.to) {
+			return -1;
+		} else if (this.to > o.to) {
+			return 1;
+		} else {
+			return 0;
+		}
 	}
 
 }

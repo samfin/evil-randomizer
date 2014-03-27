@@ -35,10 +35,13 @@ public class Trainer implements Comparable<Trainer> {
 	public String name;
 	public int trainerclass;
 	public int trainerindex;
+	public String fullDisplayName;
 
 	public String toString() {
 		StringBuilder sb = new StringBuilder("[");
-		if (name != null) {
+		if (fullDisplayName != null) {
+			sb.append(fullDisplayName + " ");
+		} else if (name != null) {
 			sb.append(name + " ");
 		}
 		if (trainerclass != 0) {
