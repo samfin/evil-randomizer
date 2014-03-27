@@ -420,6 +420,8 @@ public abstract class AbstractRomHandler implements RomHandler {
 		} else {
 			// Entirely random
 			for (EncounterSet area : currentEncounters) {
+				int i = 0;
+				int n = area.encounters.size();
 				for (Encounter enc : area.encounters) {
 					enc.pokemon = noLegendaries ? randomNonLegendaryPokemon()
 							: randomPokemon();
@@ -429,9 +431,12 @@ public abstract class AbstractRomHandler implements RomHandler {
 								: randomPokemon();
 					}
 					if(isEvil && area.recommendedLevel > 0) {
-						// Don't add as many levels to early places so player can run away
-						enc.level = area.recommendedLevel - RandomSource.nextInt(4);
+						double t = i / (double) (n-1) * 7 + RandomSource.nextInt(3) - 4;
+						int a = enc.level;
+						enc.level = area.recommendedLevel + (int) Math.round(t);
+						enc.maxLevel = enc.level;
 					}
+					i++;
 				}
 			}
 		}
@@ -1864,8 +1869,29 @@ public abstract class AbstractRomHandler implements RomHandler {
 		return getNewLevel(level, null);
 	}
 
+	private double evaluate(Pokemon pkmn) {
+		// Evaluate how many hits a pokemon can take
+		double hp = pkmn.hp + 50 + 8;
+		double atk = pkmn.attack + 8;
+		double def = pkmn.defense + 8;
+		double spe = pkmn.speed + 8;
+		double spa = Math.max(pkmn.special, pkmn.spatk) + 8;
+		double spd = Math.max(pkmn.special, pkmn.spdef) + 8;
+		double physHits = hp * def / 8000;
+		double specHits = hp * spd / 8000;
+		double e = 0.5;
+		double tankiness = Math.pow((Math.pow(physHits, e) + Math.pow(specHits, e)) / 2, 1/e);
+		return tankiness;
+	}
+
 	Map<Integer, List<Move>> movesByEffect = null;
 	final int[] gen1Effects = {15, 22, 25, 32, 40, 49, 53, 59, 56, 57, 66, 67};
+	final int[] tankEffects = {1, 16, 23, 28, 32, 33, 35, 37, 40, 49, 58, 65,
+			67, 84, 89, 98, 100, 108, 111, 115, 132, 133, 134, 144, 165, 167, 179, 187,
+			189, 194, 199, 206, 214, 226, 259, 265};
+	final int[] fastEffects = {1, 23, 33, 35, 40, 49, 57, 58, 65, 67, 89, 90,
+			98, 111, 114, 115, 116, 118, 144, 167, 187, 189, 194, 199, 232,
+			259, 265};
 
 	public static double spcProb(double x) {
 		if(x < 0.5) {
@@ -1877,11 +1903,10 @@ public abstract class AbstractRomHandler implements RomHandler {
 		return 0.5 + 0.5 * Math.pow(x, 0.4);
 	}
 
+	public boolean isGen1 = false;
+
 	@Override
 	public int pickEvilMove(Pokemon pkmn, int level, int movesLeft) {
-		// TODO: Actually check this somewhere
-		boolean isGen1 = true;
-
 		List<Move> allMoves = this.getMoves();
 		
 		if(movesByEffect == null) {
@@ -1900,7 +1925,7 @@ public abstract class AbstractRomHandler implements RomHandler {
 		int moveType = 0;
 
 		boolean isDesperate = (level >= 30 || movesLeft < 2);
-		boolean isDamaging = RandomSource.nextDouble() < 0.75;
+		boolean isDamaging = RandomSource.nextDouble() < 0.69;
 		// t1 = probability of evil damaging move, t2 = probability of evil status move
 		double t1 = 0.80, t2 = 0.2;
 		if(isDesperate) {
@@ -1918,30 +1943,23 @@ public abstract class AbstractRomHandler implements RomHandler {
 		List<Move> canPick = new ArrayList<Move>();
 		if(moveType == 2) {
 			if(isGen1) {
-				/*
-				// Make haze more likely
-				if(RandomSource.random() < 0.1) {
-					return 114;
-				}
-				for(int effectIndex : gen1Effects) {
-					if(!movesByEffect.containsKey(effectIndex))
-						continue;
-					for(Move mv : movesByEffect.get(effectIndex)) {
-						// Handle haze somewhere else
-						if(mv.number == 114)
-							continue;
-						if(!RomFunctions.bannedRandomMoves[mv.number])
-							canPick.add(mv);
-					}
-				}
-				*/
-				int effectIndex = gen1Effects[RandomSource.nextInt(gen1Effects.length)];				
+				int effectIndex = gen1Effects[RandomSource.nextInt(gen1Effects.length)];
 				for(Move mv : movesByEffect.get(effectIndex)) {
 					if(!RomFunctions.bannedRandomMoves[mv.number])
 						canPick.add(mv);
 				}
 			} else {
-				// TODO: get effect list for later gens
+				double tankiness = evaluate(pkmn);
+				double d = 1 - 1 / (1 + tankiness);
+				boolean useTankMove = RandomSource.nextDouble() < d;
+				int[] effectIndices = useTankMove? tankEffects : fastEffects;
+				int effectIndex = effectIndices[RandomSource.nextInt(effectIndices.length)];
+				while(!movesByEffect.containsKey(effectIndex))
+					effectIndex = effectIndices[RandomSource.nextInt(effectIndices.length)];
+				for(Move mv : movesByEffect.get(effectIndex)) {
+					if(!RomFunctions.bannedRandomMoves[mv.number])
+						canPick.add(mv);
+				}
 			}
 		} else if(moveType == 1) {
 			// Determine physical/special based on stats
@@ -1962,7 +1980,9 @@ public abstract class AbstractRomHandler implements RomHandler {
 			if(RandomSource.nextDouble() < 0.5) {
 				if(isDesperate) {
 					minPwr = 65;
-					maxPwr = 120;
+					maxPwr = 140;
+					if(isGen1)
+						maxPwr = 120;
 				} else if(level >= 10) {
 					minPwr = 40;
 				}

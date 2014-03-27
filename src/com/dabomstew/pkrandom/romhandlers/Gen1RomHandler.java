@@ -383,6 +383,7 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 				&& romEntry.extraTableFile.equalsIgnoreCase("none") == false) {
 			readTextTable(romEntry.extraTableFile);
 		}
+		isGen1 = true;
 		loadPokemonStats();
 		loadMoves();
 	}
@@ -971,7 +972,7 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 		return pokes[(int) (RandomSource.random() * 151 + 1)];
 	}
 
-	int[] encounterAreaLevels = {0, 0, 0, 0, 13, 14, 14, 16, 18, 21, 21, 28, 28, 28, 28, 30, 30, 30, 40, 33, 33, 30, 30, 30, 30, 30,
+	int[] encounterAreaLevels = {0, 0, 0, 0, 13, 14, 14, 15, 18, 21, 21, 26, 26, 28, 28, 30, 30, 30, 40, 33, 33, 30, 30, 30, 30, 30,
 								 40, 40, 40, 34, 38, 38, 38, 39, 39, 40, 43, 46, 47, 48, 49, 50, 46, 47, 48, 49, 45, 43, 76, 80, 85,
 								 47, 58, 59, 61, 58, 32};
 	@Override
@@ -987,9 +988,11 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 				EncounterSet thisSet = new EncounterSet();
 				thisSet.rate = rom[offs] & 0xFF;
 				offs++;
+				int average_level = 0;
 				while (rom[offs] != 0) {
 					Encounter enc = new Encounter();
 					enc.level = rom[offs] & 0xFF;
+					average_level += enc.level;
 					enc.pokemon = pokes[pokeRBYToNumTable[rom[offs + 1] & 0xFF]];
 					offs += 2;
 					thisSet.encounters.add(enc);
@@ -998,7 +1001,12 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 						break;
 					}
 				}
-				thisSet.recommendedLevel = encounterAreaLevels[i];
+				average_level /= thisSet.encounters.size();
+				if(encounterAreaLevels[i] == 0) {
+					thisSet.recommendedLevel = 0;
+				} else {
+					thisSet.recommendedLevel = (int) (1.25 * average_level + 0.5);
+				}
 				encounters.add(thisSet);
 				i++;
 			}
@@ -1957,10 +1965,11 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 		addr = addr % 0x4000 + 0x4000;
 		return String.format("%02x%02x", addr & 0xff, addr >> 8);
 	}
-
 	public String formatText(String str) {
+		return formatText(str, true);
+	}
+	public String formatText(String str, boolean normalText) {
 		// Add newlines to string so that no line has too many characters
-		final int MAX_CHARS = 17;
 		String[] words = str.split(" ");
 		StringBuilder sb = new StringBuilder();
 		int len = 0;
@@ -1968,7 +1977,10 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 
 		for(String word : words) {
 			int newlen = len + 1 + word.length();
-			if(newlen > MAX_CHARS) {
+			int max_len = 17;
+			if(!normalText && firstLine)
+				max_len = 8;
+			if(newlen > max_len) {
 				len = 0;
 				if(firstLine)
 					sb.append("\\n");
@@ -1982,7 +1994,10 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 			len += word.length();
 			sb.append(word);
 		}
-		sb.append("\\x57");
+		if(normalText)
+			sb.append("\\x57");
+		else
+			sb.append("\\x58");
 
 		return sb.toString();
 	}
@@ -2062,18 +2077,58 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 				ans = 1-ans;
 			writeHexString(String.format("%02x", (ans << 4) + (i+1)), 0x46df6 + 6*i);
 		}
+
+		// Oak hack
+		int oakOffset = 0x1f000;
+		int battleFlag = 0xd863;
+		String[] oakText = {
+			"This is the final challenge. Are you ready?",
+			"Not bad, but you are only halfway done!",
+			"This challenge is not meant to be possible. Do not be disappointed if you lose now. The true last battle is next!",
+			"Well done. You really are the best.",
+		};
+		int[] oakTextOffsets = {0x1f400, 0x1f500, 0x1f600, 0x1f700, 0x1f800, 0x1f900, 0x1fa00};
+		// Write text
+		for(int i = 0; i < 4; i++) {
+			writeFixedLengthScriptString(formatText(oakText[i], i == 0), oakTextOffsets[i] + 1, 255);
+		}
+		// Write main asm
+		// String oakasm = "3e02e0e3 2106d53ee2223e01223ee2223e02223ee2223e0322 210074cd493c 212dd7cbf6cbfe 210075110075cd5433 3e02ea13cfcd6a33cdd732c3d724";
+		String oakasm = "3e01e0e32106d53ee2223e01223ee2223e02223ee2223e0322210074cd493c212dd7cbf6cbfe210075110075cd54333e02ea13cfcd6a33cdd732c3d724";
+		writeHexString(oakasm, oakOffset);
+		// Point to the new asm
+		writeHexString("c3" + addr2str(oakOffset), 0x1d266);
+
+		// Write oak script
+		int oakScriptOffset = 0x1ff00;
+		String battlescriptbase = "3e%02xe0e3212dd7cbf6cbfe21%s11%scd54333e%02xea13cfcd6a33cdd732c9";
+		String battlescript1 = String.format(battlescriptbase, 2, addr2str(oakTextOffsets[2]), addr2str(oakTextOffsets[2]), 2+1);
+		String battlescript2 = String.format(battlescriptbase, 3, addr2str(oakTextOffsets[3]), addr2str(oakTextOffsets[3]), 3+1);
+		String endscript = "3e04ea09c13e76e08b3e00ea2fd43e04ea65d3212dd7cbdec9";
+		String oakscriptbase = "f0e3a7c821834a060fcdd6357aa72003e0e3c9f0e3fe0220%02x%sfe0120%02x%s%s";
+		String oakscript = String.format(oakscriptbase, battlescript2.length() / 2, battlescript2, battlescript1.length() / 2, battlescript1, endscript);
+		writeHexString(oakscript, oakScriptOffset);
+		// Repoint the script
+		writeHexString(addr2str(oakScriptOffset), 0x1cb4c);
+
+		// Music hack
+		int musicOffset = 0xa953;
+		String musicscript = "fa59d0fee23eedc20051fa2ecdfe0120053eeac300513ef3c30051";
+		writeHexString("c3" + addr2str(musicOffset), 0x90f6);
+		writeHexString(musicscript, musicOffset);
 	}
 
 	// Mirror move, haze, recover, evasion, more evasion, dream eater, super fang
 	int[] mod2Effects = {9, 25, 56, 15, 22, 8, 40};
+	// Return the encouragement change in register c
 	String[] mod2Functions = {
 		"0e01c3.",
 		"af211acd0607052804862318f90e01fe2bda.0e00fe2cda.0efffe2dda.0efdc3.",
 		"faf5cf47fae7cf8738060efeb8da.0e02c3.",
-		"0e05fa33cdfe0ad2.fa63d0cb47c2.0e00c3.",
-		"0e05fa33cdfe0ad2.fa63d0cb47c2.0effc3.",
+		"0e05fa63d0cb47c2.062ecd9334c2.fa1ecd47fa33cd90fe02d2.0e00c3.",
+		"0e05fa63d0cb47c2.062ecd9334c2.fa1ecd47fa33cd90fe02d2.0effc3.",
 		"fa18d00e05e607ca.0e00c3.",
-		"fad02447fa16d08738060e01b8da.0effc3.",
+		"3e02cdcf670e01da.0effc3.",
 	};
 	String[] mod2Table = {
 		"00", "00", "00", "00", "00", "00", "00", "00", "00", "00",
@@ -2188,17 +2243,19 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 
 			// Increase static pokemon levels
 			// Magikarp
-			writeHexString("0f", 0x4931f);
+			writeHexString("0d", 0x4931f);
 			// Eevee
-			writeHexString("25", 0x1dd48);
+			writeHexString("1a", 0x1dd48);
 			// Lapras
-			writeHexString("2d", 0x51dac);
+			writeHexString("25", 0x51dac);
 
 			// Ban healing items in battle
-			// fa 91 cf fe 3d
 			writeHexString("c3507c", 0xdcc5);
 			writeHexString("fa57d0fe02201dfa06cf47fa2fccb82013fa31d011010021007ecdab3d3005d1e1c3735dfa91cffe3d063c281606503012fe3c0632280cfe1306c83806063228020614c3e45c", 0xfc50);
 			writeHexString("252627281d2c212e2f2b1aff", 0xfe00);
+
+			// Start with extra money
+			writeHexString(String.format("%02x", 0x50), 0xf881);
 		}
 	}
 
@@ -2216,12 +2273,27 @@ public class Gen1RomHandler extends AbstractGBRomHandler {
 				return level;
 			} else if(tr.trainerclass >= 37 && tr.trainerclass <= 40 || tr.trainerclass == 29 && tr.trainerindex == 2) {
 				// Erika, Koga, Sabrina, Blaine, Giovanni 3
-				return level + 16;
+				return level + 14;
+			} else if(tr.trainerclass == 26) {
+				// Oak trials
+				if(tr.trainerindex == 0) {
+					if(level == 70)
+						return 100;
+					return level + 25;
+				} else if(tr.trainerindex == 1) {
+					if(level == 70)
+						return 125;
+					return 100 + 3 * (level - 66);
+				} else {
+					if(level == 70)
+						return 142;
+					return 125;
+				}
 			}
 		}
 		// piecewise linear function with these points
-		int[] x = {1, 7, 13, 14, 18, 24, 29, 33, 40, 43, 45, 48, 53, 57, 61, 65,  70,  100, 255};
-		int[] y = {1, 7, 15, 16, 24, 30, 35, 43, 50, 54, 57, 60, 70, 80, 91, 100, 127, 100, 255};
+		int[] x = {1, 18, 24, 29, 33, 40, 43, 48, 53, 57, 61, 65, 100, 255};
+		int[] y = {1, 18, 28, 35, 41, 48, 52, 55, 60, 68, 75, 84, 100, 255};
 		int i = 0;
 		while(level >= x[i+1]) i++;
 		double t = (level - x[i]) / (double) (x[i+1] - x[i]);

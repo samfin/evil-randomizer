@@ -1064,6 +1064,8 @@ public class Gen3RomHandler extends AbstractGBRomHandler {
 		// Grab the *real* pointer to data
 		int dataOffset = readPointer(offset + 4);
 		// Read the entries
+		int minLevel = 9999;
+		int maxLevel = -1;
 		for (int i = 0; i < numOfEntries; i++) {
 			// min, max, species, species
 			Encounter enc = new Encounter();
@@ -1076,7 +1078,13 @@ public class Gen3RomHandler extends AbstractGBRomHandler {
 				throw ex;
 			}
 			thisSet.encounters.add(enc);
+			minLevel = Math.min(minLevel, enc.level);
+			maxLevel = Math.max(maxLevel, enc.maxLevel);
 		}
+		double p = 2.3;
+		int level = (int) Math.round(Math.pow(0.5 * (Math.pow(minLevel, p) + Math.pow(maxLevel, p)), 1/p));
+		if(maxLevel >= 8)
+			thisSet.recommendedLevel = getNewLevel(level + 3) + 2;
 		return thisSet;
 	}
 
@@ -1514,6 +1522,8 @@ public class Gen3RomHandler extends AbstractGBRomHandler {
 			// min, max, species, species
 			writeWord(dataOffset + i * 4 + 2,
 					pokeNumTo3GIndex(enc.pokemon.number));
+			rom[dataOffset + i*4] = (byte) enc.level;
+			rom[dataOffset + i*4 + 1] = (byte) enc.maxLevel;
 		}
 	}
 
@@ -2335,6 +2345,24 @@ public class Gen3RomHandler extends AbstractGBRomHandler {
 	@Override
 	public String[] getItemNames() {
 		return RomFunctions.itemNames[2];
+	}
+	
+	@Override
+	public int getNewLevel(int level, Trainer tr) {
+		if(tr == null || romEntry.romType != RomType_FRLG)
+			return level;
+		if(tr.tag == "GYM1") {
+			return level - 1;
+		} else if(tr.tag != null && tr.tag.startsWith("RIVAL3")) {
+			return level;
+		}
+		// piecewise linear function with these points
+		int[] x = {1, 7, 13, 14, 18, 24, 29, 33, 40, 43, 45, 48, 53, 57, 61, 65, 100, 255};
+		int[] y = {1, 7, 15, 16, 24, 30, 35, 43, 50, 54, 57, 60, 70, 78, 83, 88, 100, 255};
+		int i = 0;
+		while(level >= x[i+1]) i++;
+		double t = (level - x[i]) / (double) (x[i+1] - x[i]);
+		return (int) Math.round(t * y[i+1] + (1-t) * y[i]);
 	}
 
 }
